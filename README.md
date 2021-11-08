@@ -1,6 +1,6 @@
 ## Welcome to GitHub Pages
 
-(网站主页)[https://stacey1018.github.io/stacey.github.io/]
+[网站主页](https://stacey1018.github.io/stacey.github.io/)
 
 You can use the [editor on GitHub](https://github.com/Stacey1018/gitlearn.github.io/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
 
