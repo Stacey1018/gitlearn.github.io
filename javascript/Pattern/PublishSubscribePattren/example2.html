@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="http://libs.baidu.com/jquery/2.0.0/jquery.js"></script>
+    <script src="./underscore.js"></script>
+    <form id="flickrSearch">
+
+        <input type="text" name="tag" id="query" />
+
+        <input type="submit" name="submit" value="submit" />
+
+    </form>
+
+
+    <div id="lastQuery"></div>
+
+    <ol id="searchResults"></ol>
+
+
+    <script id="resultTemplate" type="text/html">
+         <% _.each(items, function( item ){ %>
+             <li><img src="<%= item.media.m %>"/></li>
+         <% });%>
+     </script>
+    <script>
+        (function ($) {
+
+            (function (myObject) {
+
+                // Storage for topics that can be broadcast
+                // or listened to
+                var topics = {};
+
+                // A topic identifier
+                var subUid = -1;
+
+                // Publish or broadcast events of interest
+                // with a specific topic name and arguments
+                // such as the data to pass along
+                myObject.publish = function (topic, args) {
+
+                    if (!topics[topic]) {
+                        return false;
+                    }
+
+                    var subscribers = topics[topic],
+                        len = subscribers ? subscribers.length : 0;
+
+                    while (len--) {
+                        subscribers[len].func(topic, args);
+                    }
+
+                    return this;
+                };
+
+                // Subscribe to events of interest
+                // with a specific topic name and a
+                // callback function, to be executed
+                // when the topic/event is observed
+                myObject.subscribe = function (topic, func) {
+
+                    if (!topics[topic]) {
+                        topics[topic] = [];
+                    }
+
+                    var token = (++subUid).toString();
+                    topics[topic].push({
+                        token: token,
+                        func: func
+                    });
+                    return token;
+                };
+
+                // Unsubscribe from a specific
+                // topic, based on a tokenized reference
+                // to the subscription
+                myObject.unsubscribe = function (token) {
+                    for (var m in topics) {
+                        if (topics[m]) {
+                            for (var i = 0, j = topics[m].length; i < j; i++) {
+                                if (topics[m][i].token === token) {
+                                    topics[m].splice(i, 1);
+                                    return token;
+                                }
+                            }
+                        }
+                    }
+                    return this;
+                };
+            }($));
+
+
+            // Pre-compile template and "cache" it using closure
+            var resultTemplate = _.template($("#resultTemplate").html());
+
+            // Subscribe to the new search tags topic
+            $.subscribe("/search/tags", function (e, tags) {
+                $("#lastQuery")
+                    .html("<p>Searched for:<strong>" + tags + "</strong></p>");
+            });
+
+            // Subscribe to the new results topic
+            $.subscribe("/search/resultSet", function (e, results) {
+
+                $("#searchResults").empty().append(resultTemplate(results));
+
+            });
+
+            // Submit a search query and publish tags on the /search/tags topic
+            $("#flickrSearch").submit(function (e) {
+
+                e.preventDefault();
+                var tags = $(this).find("#query").val();
+
+                if (!tags) {
+                    return;
+                }
+
+                $.publish("/search/tags", [$.trim(tags)]);
+
+            });
+
+
+            // Subscribe to new tags being published and perform
+            // a search query using them. Once data has returned
+            // publish this data for the rest of the application
+            // to consume
+
+            $.subscribe("/search/tags", function (e, tags) {
+
+                $.getJSON("http://api.flickr.com/services/feeds/photos_public.gne?jsoncallback=?", {
+                    tags: tags,
+                    tagmode: "any",
+                    format: "json"
+                },
+
+                    function (data) {
+
+                        if (!data.items.length) {
+                            return;
+                        }
+
+                        $.publish("/search/resultSet", { items: data.items });
+                    });
+
+            });
+
+
+        })(jQuery);
+    </script>
+</body>
+
+</html>

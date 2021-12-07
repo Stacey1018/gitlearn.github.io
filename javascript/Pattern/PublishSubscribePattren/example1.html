@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="http://libs.baidu.com/jquery/2.0.0/jquery.js"></script>
+    <script src="./underscore.js"></script>
+    <!-- <script src="https://www.html.cn/doc/underscore1.7.0/"></script> -->
+    <script id="userTemplate" type="text/html">
+        <li><%= name %></li>
+     </script>
+
+
+    <script id="ratingsTemplate" type="text/html">
+        <li><strong><%= title %></strong> was rated <%= rating %>/5</li>
+     </script>
+
+
+    <div id="container">
+
+        <div class="sampleForm">
+            <p>
+                <label for="twitter_handle">Twitter handle:</label>
+                <input type="text" id="twitter_handle" />
+            </p>
+            <p>
+                <label for="movie_seen">Name a movie you've seen this year:</label>
+                <input type="text" id="movie_seen" />
+            </p>
+            <p>
+
+                <label for="movie_rating">Rate the movie you saw:</label>
+                <select id="movie_rating">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5" selected>5</option>
+
+                </select>
+            </p>
+            <p>
+
+                <button id="add">Submit rating</button>
+            </p>
+        </div>
+
+
+
+        <div class="summaryTable">
+            <div id="users">
+                <h3>Recent users</h3>
+            </div>
+            <div id="ratings">
+                <h3>Recent movies rated</h3>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        (function ($) {
+
+            // Pre-compile templates and "cache" them using closure
+            var
+                userTemplate = _.template($("#userTemplate").html()),
+                ratingsTemplate = _.template($("#ratingsTemplate").html());
+
+
+            (function (myObject) {
+
+                // Storage for topics that can be broadcast
+                // or listened to
+                var topics = {};
+
+                // A topic identifier
+                var subUid = -1;
+
+                // Publish or broadcast events of interest
+                // with a specific topic name and arguments
+                // such as the data to pass along
+                myObject.publish = function (topic, args) {
+
+                    if (!topics[topic]) {
+                        return false;
+                    }
+
+                    var subscribers = topics[topic],
+                        len = subscribers ? subscribers.length : 0;
+
+                    while (len--) {
+                        subscribers[len].func(topic, args);
+                    }
+
+                    return this;
+                };
+
+                // Subscribe to events of interest
+                // with a specific topic name and a
+                // callback function, to be executed
+                // when the topic/event is observed
+                myObject.subscribe = function (topic, func) {
+
+                    if (!topics[topic]) {
+                        topics[topic] = [];
+                    }
+
+                    var token = (++subUid).toString();
+                    topics[topic].push({
+                        token: token,
+                        func: func
+                    });
+                    return token;
+                };
+
+                // Unsubscribe from a specific
+                // topic, based on a tokenized reference
+                // to the subscription
+                myObject.unsubscribe = function (token) {
+                    for (var m in topics) {
+                        if (topics[m]) {
+                            for (var i = 0, j = topics[m].length; i < j; i++) {
+                                if (topics[m][i].token === token) {
+                                    topics[m].splice(i, 1);
+                                    return token;
+                                }
+                            }
+                        }
+                    }
+                    return this;
+                };
+            }($));
+
+
+            // Subscribe to the new user topic, which adds a user
+            // to a list of users who have submitted reviews
+            $.subscribe("/new/user", function (e, data) {
+
+                if (data) {
+
+                    $('#users').append(userTemplate(data));
+
+                }
+
+            });
+
+            // Subscribe to the new rating topic. This is composed of a title and
+            // rating. New ratings are appended to a running list of added user
+            // ratings.
+            $.subscribe("/new/rating", function (e, data) {
+
+                if (data) {
+
+                    $("#ratings").append(ratingsTemplate(data));
+
+                }
+
+            });
+
+            // Handler for adding a new user
+            $("#add").on("click", function (e) {
+
+                e.preventDefault();
+
+                var strUser = $("#twitter_handle").val(),
+                    strMovie = $("#movie_seen").val(),
+                    strRating = $("#movie_rating").val();
+
+                // Inform the application a new user is available
+                $.publish("/new/user", { name: strUser });
+
+                // Inform the app a new rating is available
+                $.publish("/new/rating", { title: strMovie, rating: strRating });
+
+            });
+
+        })(jQuery);
+    </script>
+</body>
+
+</html>
